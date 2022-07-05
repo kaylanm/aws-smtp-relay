@@ -43,6 +43,7 @@ func sendHelper(
 	configurationSetName *string,
 	allowFromRegExp *regexp.Regexp,
 	denyToRegExp *regexp.Regexp,
+	rewriteFrom *string,
 	apiErr error,
 ) (email *pinpointemail.SendEmailInput, out []byte, err []byte, sendErr error) {
 	outReader, outWriter, _ := os.Pipe()
@@ -63,6 +64,7 @@ func sendHelper(
 			setName:         configurationSetName,
 			allowFromRegExp: allowFromRegExp,
 			denyToRegExp:    denyToRegExp,
+			rewriteFrom:     rewriteFrom,
 		}
 		testData.err = apiErr
 		sendErr = c.Send(origin, from, to, data)
@@ -80,7 +82,7 @@ func TestSend(t *testing.T) {
 	to := []string{"bob@example.org"}
 	data := []byte{'T', 'E', 'S', 'T'}
 	setName := ""
-	input, out, err, _ := sendHelper(&origin, from, to, data, &setName, nil, nil, nil)
+	input, out, err, _ := sendHelper(&origin, from, to, data, &setName, nil, nil, nil, nil)
 	if *input.FromEmailAddress != from {
 		t.Errorf(
 			"Unexpected source: %s. Expected: %s",
@@ -120,7 +122,7 @@ func TestSendWithMultipleRecipients(t *testing.T) {
 	to := []string{"bob@example.org", "charlie@example.org"}
 	data := []byte{'T', 'E', 'S', 'T'}
 	setName := ""
-	input, out, err, _ := sendHelper(&origin, from, to, data, &setName, nil, nil, nil)
+	input, out, err, _ := sendHelper(&origin, from, to, data, &setName, nil, nil, nil, nil)
 	if len(input.Destination.ToAddresses) != 2 {
 		t.Errorf(
 			"Unexpected number of destinations: %d. Expected: %d",
@@ -150,7 +152,7 @@ func TestSendWithDeniedSender(t *testing.T) {
 	data := []byte{'T', 'E', 'S', 'T'}
 	setName := ""
 	regexp, _ := regexp.Compile(`^admin@example\.org$`)
-	input, out, err, sendErr := sendHelper(&origin, from, to, data, &setName, regexp, nil, nil)
+	input, out, err, sendErr := sendHelper(&origin, from, to, data, &setName, regexp, nil, nil, nil)
 	if input != nil {
 		t.Errorf(
 			"Unexpected number of destinations: %d. Expected: %d",
@@ -176,7 +178,7 @@ func TestSendWithDeniedRecipient(t *testing.T) {
 	data := []byte{'T', 'E', 'S', 'T'}
 	setName := ""
 	regexp, _ := regexp.Compile(`^bob@example\.org$`)
-	input, out, err, sendErr := sendHelper(&origin, from, to, data, &setName, nil, regexp, nil)
+	input, out, err, sendErr := sendHelper(&origin, from, to, data, &setName, nil, regexp, nil, nil)
 	if len(input.Destination.ToAddresses) != 1 {
 		t.Errorf(
 			"Unexpected number of destinations: %d. Expected: %d",
@@ -202,6 +204,47 @@ func TestSendWithDeniedRecipient(t *testing.T) {
 	}
 }
 
+func TestSendWithRewriteFrom(t *testing.T) {
+	origin := net.TCPAddr{IP: []byte{127, 0, 0, 1}}
+	from := "alice@example.org"
+	rewriteFrom := "example@example.org"
+	to := []string{"bob@example.org"}
+	data := []byte{'T', 'E', 'S', 'T'}
+	setName := ""
+	input, out, err, _ := sendHelper(&origin, from, to, data, &setName, nil, nil, &rewriteFrom, nil)
+	if *input.FromEmailAddress != rewriteFrom {
+		t.Errorf(
+			"Unexpected source: %s. Expected: %s",
+			*input.FromEmailAddress,
+			from,
+		)
+	}
+	if len(input.Destination.ToAddresses) != 1 {
+		t.Errorf(
+			"Unexpected number of destinations: %d. Expected: %d",
+			len(input.Destination.ToAddresses),
+			1,
+		)
+	}
+	if *input.Destination.ToAddresses[0] != to[0] {
+		t.Errorf(
+			"Unexpected destination: %s. Expected: %s",
+			*input.Destination.ToAddresses[0],
+			to[0],
+		)
+	}
+	inputData := string(input.Content.Raw.Data)
+	if inputData != "TEST" {
+		t.Errorf("Unexpected data: %s. Expected: %s", inputData, "TEST")
+	}
+	if len(out) == 0 {
+		t.Error("Unexpected empty stdout")
+	}
+	if len(err) != 0 {
+		t.Errorf("Unexpected stderr: %s", err)
+	}
+}
+
 func TestSendWithApiError(t *testing.T) {
 	origin := net.TCPAddr{IP: []byte{127, 0, 0, 1}}
 	from := "alice@example.org"
@@ -209,7 +252,7 @@ func TestSendWithApiError(t *testing.T) {
 	data := []byte{'T', 'E', 'S', 'T'}
 	setName := ""
 	apiErr := errors.New("API failure")
-	input, out, err, sendErr := sendHelper(&origin, from, to, data, &setName, nil, nil, apiErr)
+	input, out, err, sendErr := sendHelper(&origin, from, to, data, &setName, nil, nil, nil, apiErr)
 	if *input.FromEmailAddress != from {
 		t.Errorf(
 			"Unexpected source: %s. Expected: %s",
@@ -250,7 +293,7 @@ func TestNew(t *testing.T) {
 	setName := ""
 	allowFromRegExp, _ := regexp.Compile(`^admin@example\.org$`)
 	denyToRegExp, _ := regexp.Compile(`^bob@example\.org$`)
-	client := New(&setName, allowFromRegExp, denyToRegExp)
+	client := New(&setName, allowFromRegExp, denyToRegExp, nil)
 	_, ok := interface{}(client).(relay.Client)
 	if !ok {
 		t.Error("Unexpected: client is not a relay.Client")

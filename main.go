@@ -16,19 +16,20 @@ import (
 )
 
 var (
-	addr      = flag.String("a", ":1025", "TCP listen address")
-	name      = flag.String("n", "AWS SMTP Relay", "SMTP service name")
-	host      = flag.String("h", "", "Server hostname")
-	certFile  = flag.String("c", "", "TLS cert file")
-	keyFile   = flag.String("k", "", "TLS key file")
-	startTLS  = flag.Bool("s", false, "Require TLS via STARTTLS extension")
-	onlyTLS   = flag.Bool("t", false, "Listen for incoming TLS connections only")
-	relayAPI  = flag.String("r", "ses", "Relay API to use (ses|pinpoint)")
-	setName   = flag.String("e", "", "Amazon SES Configuration Set Name")
-	ips       = flag.String("i", "", "Allowed client IPs (comma-separated)")
-	user      = flag.String("u", "", "Authentication username")
-	allowFrom = flag.String("l", "", "Allowed sender emails regular expression")
-	denyTo    = flag.String("d", "", "Denied recipient emails regular expression")
+	addr        = flag.String("a", ":1025", "TCP listen address")
+	name        = flag.String("n", "AWS SMTP Relay", "SMTP service name")
+	host        = flag.String("h", "", "Server hostname")
+	certFile    = flag.String("c", "", "TLS cert file")
+	keyFile     = flag.String("k", "", "TLS key file")
+	startTLS    = flag.Bool("s", false, "Require TLS via STARTTLS extension")
+	onlyTLS     = flag.Bool("t", false, "Listen for incoming TLS connections only")
+	relayAPI    = flag.String("r", "ses", "Relay API to use (ses|pinpoint)")
+	setName     = flag.String("e", "", "Amazon SES Configuration Set Name")
+	ips         = flag.String("i", "", "Allowed client IPs (comma-separated)")
+	user        = flag.String("u", "", "Authentication username")
+	allowFrom   = flag.String("l", "", "Allowed sender emails regular expression")
+	denyTo      = flag.String("d", "", "Denied recipient emails regular expression")
+	rewriteFrom = flag.String("f", "", "Address to replace all from addresses")
 )
 
 var ipMap map[string]bool
@@ -81,9 +82,9 @@ func configure() error {
 	}
 	switch *relayAPI {
 	case "pinpoint":
-		relayClient = pinpointrelay.New(setName, allowFromRegExp, denyToRegExp)
+		relayClient = pinpointrelay.New(setName, allowFromRegExp, denyToRegExp, rewriteFrom)
 	case "ses":
-		relayClient = sesrelay.New(setName, allowFromRegExp, denyToRegExp)
+		relayClient = sesrelay.New(setName, allowFromRegExp, denyToRegExp, rewriteFrom)
 	default:
 		return errors.New("Invalid relay API: " + *relayAPI)
 	}

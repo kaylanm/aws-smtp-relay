@@ -142,6 +142,7 @@ func resetHelper() {
 	*user = ""
 	*allowFrom = ""
 	*denyTo = ""
+	*rewriteFrom = ""
 	ipMap = nil
 	bcryptHash = nil
 	password = nil
@@ -272,6 +273,15 @@ func TestConfigureWithInvalidDenyTo(t *testing.T) {
 	err := configure()
 	if err == nil {
 		t.Error("Unexpected nil error")
+	}
+}
+
+func TestConfigureWithRewriteFrom(t *testing.T) {
+	resetHelper()
+	*rewriteFrom = "example@example.com"
+	err := configure()
+	if err != nil {
+		t.Errorf("Unexpected error: %s", err)
 	}
 }
 

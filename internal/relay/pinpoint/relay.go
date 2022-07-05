@@ -16,6 +16,7 @@ type Client struct {
 	setName         *string
 	allowFromRegExp *regexp.Regexp
 	denyToRegExp    *regexp.Regexp
+	rewriteFrom     *string
 }
 
 // Send uses the given Pinpoint API to send email data
@@ -33,6 +34,9 @@ func (c Client) Send(
 	)
 	if err != nil {
 		relay.Log(origin, &from, deniedRecipients, err)
+	}
+	if c.rewriteFrom != nil {
+		from = *c.rewriteFrom
 	}
 	if len(allowedRecipients) > 0 {
 		_, err := c.pinpointAPI.SendEmail(&pinpointemail.SendEmailInput{
@@ -60,11 +64,13 @@ func New(
 	configurationSetName *string,
 	allowFromRegExp *regexp.Regexp,
 	denyToRegExp *regexp.Regexp,
+	rewriteFrom *string,
 ) Client {
 	return Client{
 		pinpointAPI:     pinpointemail.New(session.Must(session.NewSession())),
 		setName:         configurationSetName,
 		allowFromRegExp: allowFromRegExp,
 		denyToRegExp:    denyToRegExp,
+		rewriteFrom:     rewriteFrom,
 	}
 }
