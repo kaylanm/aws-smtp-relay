@@ -30,6 +30,7 @@ var (
 	allowFrom   = flag.String("l", "", "Allowed sender emails regular expression")
 	denyTo      = flag.String("d", "", "Denied recipient emails regular expression")
 	rewriteFrom = flag.String("f", "", "Address to replace all from addresses")
+	verboseSmtp = flag.Bool("v", false, "Log SMTP traffic")
 )
 
 var ipMap map[string]bool
@@ -52,6 +53,7 @@ func server() (srv *smtpd.Server, err error) {
 		AuthRequired: ipMap != nil || *user != "",
 		AuthHandler:  auth.New(ipMap, *user, bcryptHash, password).Handler,
 		AuthMechs:    authMechs,
+		Debug:        *verboseSmtp,
 	}
 	if *certFile != "" && *keyFile != "" {
 		keyPass := os.Getenv("TLS_KEY_PASS")
