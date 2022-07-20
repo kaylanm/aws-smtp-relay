@@ -15,6 +15,7 @@ type Client struct {
 	sesAPI          sesiface.SESAPI
 	setName         *string
 	allowFromRegExp *regexp.Regexp
+	allowToRegExp   *regexp.Regexp
 	denyToRegExp    *regexp.Regexp
 }
 
@@ -29,6 +30,7 @@ func (c Client) Send(
 		from,
 		to,
 		c.allowFromRegExp,
+		c.allowToRegExp,
 		c.denyToRegExp,
 	)
 	if err != nil {
@@ -53,12 +55,14 @@ func (c Client) Send(
 func New(
 	configurationSetName *string,
 	allowFromRegExp *regexp.Regexp,
+	allowToRegExp *regexp.Regexp,
 	denyToRegExp *regexp.Regexp,
 ) Client {
 	return Client{
 		sesAPI:          ses.New(session.Must(session.NewSession())),
 		setName:         configurationSetName,
 		allowFromRegExp: allowFromRegExp,
+		allowToRegExp:   allowToRegExp,
 		denyToRegExp:    denyToRegExp,
 	}
 }

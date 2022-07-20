@@ -151,6 +151,7 @@ func TestFilterAddresses(t *testing.T) {
 		to,
 		nil,
 		nil,
+		nil,
 	)
 	if err != nil {
 		t.Errorf("Unexpected error: %s. Expected: %v", err, nil)
@@ -186,6 +187,7 @@ func TestFilterAddressesWithDeniedSender(t *testing.T) {
 		from,
 		to,
 		allowFromRegExp,
+		nil,
 		denyToRegExp,
 	)
 	if err == nil {
@@ -228,6 +230,7 @@ func TestFilterAddressesWithDeniedRecipients(t *testing.T) {
 		from,
 		to,
 		allowFromRegExp,
+		nil,
 		denyToRegExp,
 	)
 	if err == nil {
@@ -253,6 +256,49 @@ func TestFilterAddressesWithDeniedRecipients(t *testing.T) {
 			"Unexpected denied recipients: %s. Expected: %s",
 			deniedRecipientsValues,
 			[]string{"bob@example.org"},
+		)
+	}
+}
+
+func TestFilterAddressesWithUnallowedRecipients(t *testing.T) {
+	from := "alice@example.org"
+	to := []string{
+		"bob@example.org",
+		"charlie@example.org",
+	}
+	allowFromRegExp, _ := regexp.Compile(`^[^@]+@example\.org$`)
+	allowToRegExp, _ := regexp.Compile(`^bob@example\.org$`)
+	expectedError := ErrDeniedRecipients
+	allowedRecipients, deniedRecipients, err := FilterAddresses(
+		from,
+		to,
+		allowFromRegExp,
+		allowToRegExp,
+		nil,
+	)
+	if err == nil {
+		t.Errorf("Unexpected error: %v. Expected: %s", nil, expectedError)
+	} else if err.Error() != expectedError.Error() {
+		t.Errorf(
+			"Unexpected error: `%s`. Expected: `%s`",
+			err.Error(),
+			expectedError.Error(),
+		)
+	}
+	allowedRecipientsValues := pointersToValues(allowedRecipients)
+	if len(allowedRecipients) != 1 || allowedRecipientsValues[0] != to[0] {
+		t.Errorf(
+			"Unexpected allowed recipients: %s. Expected: %s",
+			allowedRecipientsValues,
+			[]string{"bob@example.org"},
+		)
+	}
+	deniedRecipientsValues := pointersToValues(deniedRecipients)
+	if len(deniedRecipients) != 1 || deniedRecipientsValues[0] != to[1] {
+		t.Errorf(
+			"Unexpected denied recipients: %s. Expected: %s",
+			deniedRecipientsValues,
+			[]string{"charlie@example.org"},
 		)
 	}
 }

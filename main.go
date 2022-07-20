@@ -28,6 +28,7 @@ var (
 	ips       = flag.String("i", "", "Allowed client IPs (comma-separated)")
 	user      = flag.String("u", "", "Authentication username")
 	allowFrom = flag.String("l", "", "Allowed sender emails regular expression")
+	allowTo   = flag.String("o", "", "Allowed recipient emails regular expression")
 	denyTo    = flag.String("d", "", "Denied recipient emails regular expression")
 )
 
@@ -65,12 +66,22 @@ func server() (srv *smtpd.Server, err error) {
 
 func configure() error {
 	var allowFromRegExp *regexp.Regexp
+	var allowToRegExp *regexp.Regexp
 	var denyToRegExp *regexp.Regexp
 	var err error
 	if *allowFrom != "" {
 		allowFromRegExp, err = regexp.Compile(*allowFrom)
 		if err != nil {
 			return errors.New("Allowed sender emails: " + err.Error())
+		}
+	}
+	if *allowTo != "" && *denyTo != "" {
+		return errors.New("cannot specify both allow to and deny to receipient email regular expressions")
+	}
+	if *allowTo != "" {
+		allowToRegExp, err = regexp.Compile(*allowTo)
+		if err != nil {
+			return errors.New("Allowed recipient emails: " + err.Error())
 		}
 	}
 	if *denyTo != "" {
@@ -81,9 +92,9 @@ func configure() error {
 	}
 	switch *relayAPI {
 	case "pinpoint":
-		relayClient = pinpointrelay.New(setName, allowFromRegExp, denyToRegExp)
+		relayClient = pinpointrelay.New(setName, allowFromRegExp, allowToRegExp, denyToRegExp)
 	case "ses":
-		relayClient = sesrelay.New(setName, allowFromRegExp, denyToRegExp)
+		relayClient = sesrelay.New(setName, allowFromRegExp, allowToRegExp, denyToRegExp)
 	default:
 		return errors.New("Invalid relay API: " + *relayAPI)
 	}

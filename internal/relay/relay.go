@@ -14,11 +14,11 @@ import (
 
 var (
 	ErrDeniedSender = errors.New(
-		"denied sender: sender does not match the allowed emails regexp",
+		"denied sender: sender does not match the allowed sender emails regexp",
 	)
 
 	ErrDeniedRecipients = errors.New(
-		"denied recipients: recipients match the denied emails regexp",
+		"denied recipients: recipients do not match the allowed or do match the denied recipient emails regexp",
 	)
 )
 
@@ -66,6 +66,7 @@ func FilterAddresses(
 	from string,
 	to []string,
 	allowFromRegExp *regexp.Regexp,
+	allowToRegExp *regexp.Regexp,
 	denyToRegExp *regexp.Regexp,
 ) (allowedRecipients []*string, deniedRecipients []*string, err error) {
 	allowedRecipients = []*string{}
@@ -77,7 +78,8 @@ func FilterAddresses(
 		recipient := &(to)[k]
 		// Deny all recipients if the sender address is not allowed
 		if err != nil ||
-			(denyToRegExp != nil && denyToRegExp.MatchString(*recipient)) {
+			(denyToRegExp != nil && denyToRegExp.MatchString(*recipient)) ||
+			(allowToRegExp != nil && !allowToRegExp.MatchString(*recipient)) {
 			deniedRecipients = append(deniedRecipients, recipient)
 		} else {
 			allowedRecipients = append(allowedRecipients, recipient)
