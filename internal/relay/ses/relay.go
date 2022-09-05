@@ -17,6 +17,7 @@ type Client struct {
 	allowFromRegExp *regexp.Regexp
 	allowToRegExp   *regexp.Regexp
 	denyToRegExp    *regexp.Regexp
+	prependSubject  *string
 }
 
 // Send uses the client SESAPI to send email data
@@ -35,6 +36,9 @@ func (c Client) Send(
 	)
 	if err != nil {
 		relay.Log(origin, &from, deniedRecipients, err)
+	}
+	if c.prependSubject != nil {
+		data = relay.PrependSubject(data, *c.prependSubject)
 	}
 	if len(allowedRecipients) > 0 {
 		_, err := c.sesAPI.SendRawEmail(&ses.SendRawEmailInput{
@@ -57,6 +61,7 @@ func New(
 	allowFromRegExp *regexp.Regexp,
 	allowToRegExp *regexp.Regexp,
 	denyToRegExp *regexp.Regexp,
+	prependSubject *string,
 ) Client {
 	return Client{
 		sesAPI:          ses.New(session.Must(session.NewSession())),
@@ -64,5 +69,6 @@ func New(
 		allowFromRegExp: allowFromRegExp,
 		allowToRegExp:   allowToRegExp,
 		denyToRegExp:    denyToRegExp,
+		prependSubject:  prependSubject,
 	}
 }

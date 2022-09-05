@@ -1,6 +1,7 @@
 package relay
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"io/ioutil"
@@ -300,5 +301,27 @@ func TestFilterAddressesWithUnallowedRecipients(t *testing.T) {
 			deniedRecipientsValues,
 			[]string{"charlie@example.org"},
 		)
+	}
+}
+
+func TestPrependSubject(t *testing.T) {
+	msg := []byte(`Received: from sender (localhost [::1])
+		by mail.host (AWS SMTP Relay) with SMTP
+		for <recipient@example.com>; Thu,  1 Sep 2022 16:11:34 -0400 (EDT)
+Subject: halo
+
+example body`)
+
+	expected := []byte(`Received: from sender (localhost [::1])
+		by mail.host (AWS SMTP Relay) with SMTP
+		for <recipient@example.com>; Thu,  1 Sep 2022 16:11:34 -0400 (EDT)
+Subject: [AWS TEST] halo
+
+example body`)
+
+	prepended := PrependSubject(msg, "[AWS TEST]")
+
+	if !bytes.Equal(prepended, expected) {
+		t.Errorf("Unexpected message content: %s. Expected %s", prepended, expected)
 	}
 }

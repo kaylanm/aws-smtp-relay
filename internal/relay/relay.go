@@ -20,6 +20,8 @@ var (
 	ErrDeniedRecipients = errors.New(
 		"denied recipients: recipients do not match the allowed or do match the denied recipient emails regexp",
 	)
+
+	PrependSubjectRegExp = regexp.MustCompile("(?m)^Subject: (.*)$")
 )
 
 // Client provides an interface to send emails.
@@ -89,4 +91,8 @@ func FilterAddresses(
 		err = ErrDeniedRecipients
 	}
 	return
+}
+
+func PrependSubject(data []byte, prepend string) []byte {
+	return PrependSubjectRegExp.ReplaceAll(data, []byte("Subject: "+prepend+" $1"))
 }
