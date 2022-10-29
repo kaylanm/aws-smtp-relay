@@ -5,14 +5,14 @@ import (
 	"regexp"
 
 	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/ses"
-	"github.com/aws/aws-sdk-go/service/ses/sesiface"
+	"github.com/aws/aws-sdk-go/service/sesv2"
+	"github.com/aws/aws-sdk-go/service/sesv2/sesv2iface"
 	"github.com/blueimp/aws-smtp-relay/internal/relay"
 )
 
 // Client implements the Relay interface.
 type Client struct {
-	sesAPI          sesiface.SESAPI
+	sesAPI          sesv2iface.SESV2API
 	setName         *string
 	allowFromRegExp *regexp.Regexp
 	allowToRegExp   *regexp.Regexp
@@ -41,11 +41,11 @@ func (c Client) Send(
 		data = relay.PrependSubject(data, *c.prependSubject)
 	}
 	if len(allowedRecipients) > 0 {
-		_, err := c.sesAPI.SendRawEmail(&ses.SendRawEmailInput{
+		_, err := c.sesAPI.SendEmail(&sesv2.SendEmailInput{
 			ConfigurationSetName: c.setName,
-			Source:               &from,
-			Destinations:         allowedRecipients,
-			RawMessage:           &ses.RawMessage{Data: data},
+			FromEmailAddress:     &from,
+			Destination:          &sesv2.Destination{ToAddresses: allowedRecipients},
+			Content:              &sesv2.EmailContent{Raw: &sesv2.RawMessage{Data: data}},
 		})
 		relay.Log(origin, &from, allowedRecipients, err)
 		if err != nil {
@@ -64,7 +64,7 @@ func New(
 	prependSubject *string,
 ) Client {
 	return Client{
-		sesAPI:          ses.New(session.Must(session.NewSession())),
+		sesAPI:          sesv2.New(session.Must(session.NewSession())),
 		setName:         configurationSetName,
 		allowFromRegExp: allowFromRegExp,
 		allowToRegExp:   allowToRegExp,
