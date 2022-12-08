@@ -44,6 +44,7 @@ func sendHelper(
 	allowToRegExp *regexp.Regexp,
 	denyToRegExp *regexp.Regexp,
 	prependSubject *string,
+	carbonCopy *string,
 	apiErr error,
 ) (email *sesv2.SendEmailInput, out []byte, err []byte, sendErr error) {
 	outReader, outWriter, _ := os.Pipe()
@@ -66,6 +67,7 @@ func sendHelper(
 			allowToRegExp:   allowToRegExp,
 			denyToRegExp:    denyToRegExp,
 			prependSubject:  prependSubject,
+			carbonCopy:      carbonCopy,
 		}
 		testData.err = apiErr
 		sendErr = c.Send(origin, from, to, data)
@@ -83,7 +85,7 @@ func TestSend(t *testing.T) {
 	to := []string{"bob@example.org"}
 	data := []byte{'T', 'E', 'S', 'T'}
 	setName := ""
-	input, out, err, _ := sendHelper(&origin, from, to, data, &setName, nil, nil, nil, nil, nil)
+	input, out, err, _ := sendHelper(&origin, from, to, data, &setName, nil, nil, nil, nil, nil, nil)
 	if *input.FromEmailAddress != from {
 		t.Errorf(
 			"Unexpected source: %s. Expected: %s",
@@ -105,6 +107,12 @@ func TestSend(t *testing.T) {
 			to[0],
 		)
 	}
+	if len(input.Destination.CcAddresses) != 0 {
+		t.Errorf(
+			"Unexpected cc destination: %x. Expected: []",
+			input.Destination.CcAddresses,
+		)
+	}
 	inputData := string(input.Content.Raw.Data)
 	if inputData != "TEST" {
 		t.Errorf("Unexpected data: %s. Expected: %s", inputData, "TEST")
@@ -123,7 +131,7 @@ func TestSendWithMultipleRecipients(t *testing.T) {
 	to := []string{"bob@example.org", "charlie@example.org"}
 	data := []byte{'T', 'E', 'S', 'T'}
 	setName := ""
-	input, out, err, _ := sendHelper(&origin, from, to, data, &setName, nil, nil, nil, nil, nil)
+	input, out, err, _ := sendHelper(&origin, from, to, data, &setName, nil, nil, nil, nil, nil, nil)
 	if len(input.Destination.ToAddresses) != 2 {
 		t.Errorf(
 			"Unexpected number of destinations: %d. Expected: %d",
@@ -153,7 +161,7 @@ func TestSendWithDeniedSender(t *testing.T) {
 	data := []byte{'T', 'E', 'S', 'T'}
 	setName := ""
 	regexp, _ := regexp.Compile(`^admin@example\.org$`)
-	input, out, err, sendErr := sendHelper(&origin, from, to, data, &setName, regexp, nil, nil, nil, nil)
+	input, out, err, sendErr := sendHelper(&origin, from, to, data, &setName, regexp, nil, nil, nil, nil, nil)
 	if input != nil {
 		t.Errorf(
 			"Unexpected number of destinations: %d. Expected: %d",
@@ -179,7 +187,7 @@ func TestSendWithDeniedRecipient(t *testing.T) {
 	data := []byte{'T', 'E', 'S', 'T'}
 	setName := ""
 	regexp, _ := regexp.Compile(`^bob@example\.org$`)
-	input, out, err, sendErr := sendHelper(&origin, from, to, data, &setName, nil, nil, regexp, nil, nil)
+	input, out, err, sendErr := sendHelper(&origin, from, to, data, &setName, nil, nil, regexp, nil, nil, nil)
 	if len(input.Destination.ToAddresses) != 1 {
 		t.Errorf(
 			"Unexpected number of destinations: %d. Expected: %d",
@@ -212,7 +220,7 @@ func TestSendWithDeniedRecipientInverse(t *testing.T) {
 	data := []byte{'T', 'E', 'S', 'T'}
 	setName := ""
 	regexp, _ := regexp.Compile(`^bob@example\.org$`)
-	input, out, err, sendErr := sendHelper(&origin, from, to, data, &setName, nil, regexp, nil, nil, nil)
+	input, out, err, sendErr := sendHelper(&origin, from, to, data, &setName, nil, regexp, nil, nil, nil, nil)
 	if len(input.Destination.ToAddresses) != 1 {
 		t.Errorf(
 			"Unexpected number of destinations: %d. Expected: %d",
@@ -244,7 +252,7 @@ func TestSendWithPrependSubject(t *testing.T) {
 	to := []string{"bob@example.org"}
 	data := []byte("Test\nSubject: Hello\n\nBody")
 	setName := ""
-	input, out, err, _ := sendHelper(&origin, from, to, data, &setName, nil, nil, nil, create("[ENVIRONMENT]"), nil)
+	input, out, err, _ := sendHelper(&origin, from, to, data, &setName, nil, nil, nil, create("[ENVIRONMENT]"), nil, nil)
 	if *input.FromEmailAddress != from {
 		t.Errorf(
 			"Unexpected source: %s. Expected: %s",
@@ -285,7 +293,7 @@ func TestSendWithApiError(t *testing.T) {
 	data := []byte{'T', 'E', 'S', 'T'}
 	setName := ""
 	apiErr := errors.New("API failure")
-	input, out, err, sendErr := sendHelper(&origin, from, to, data, &setName, nil, nil, nil, nil, apiErr)
+	input, out, err, sendErr := sendHelper(&origin, from, to, data, &setName, nil, nil, nil, nil, nil, apiErr)
 	if *input.FromEmailAddress != from {
 		t.Errorf(
 			"Unexpected source: %s. Expected: %s",
@@ -322,11 +330,66 @@ func TestSendWithApiError(t *testing.T) {
 	}
 }
 
+func TestSendWithCarbonCopy(t *testing.T) {
+	origin := net.TCPAddr{IP: []byte{127, 0, 0, 1}}
+	from := "alice@example.org"
+	to := []string{"bob@example.org"}
+	data := []byte{'T', 'E', 'S', 'T'}
+	setName := ""
+	carbonCopy := "copy@example.org"
+	input, out, err, _ := sendHelper(&origin, from, to, data, &setName, nil, nil, nil, nil, &carbonCopy, nil)
+	if *input.FromEmailAddress != from {
+		t.Errorf(
+			"Unexpected source: %s. Expected: %s",
+			*input.FromEmailAddress,
+			from,
+		)
+	}
+	if len(input.Destination.ToAddresses) != 1 {
+		t.Errorf(
+			"Unexpected number of destinations: %d. Expected: %d",
+			len(input.Destination.ToAddresses),
+			1,
+		)
+	}
+	if *input.Destination.ToAddresses[0] != to[0] {
+		t.Errorf(
+			"Unexpected destination: %s. Expected: %s",
+			*input.Destination.ToAddresses[0],
+			to[0],
+		)
+	}
+	if len(input.Destination.CcAddresses) != 1 {
+		t.Errorf(
+			"Unexpected cc destination length: %d. Expected: %d",
+			len(input.Destination.CcAddresses),
+			1,
+		)
+	}
+	if input.Destination.CcAddresses[0] != &carbonCopy {
+		t.Errorf(
+			"Unexpected cc destination: %s. Expected: %s",
+			*input.Destination.CcAddresses[0],
+			carbonCopy,
+		)
+	}
+	inputData := string(input.Content.Raw.Data)
+	if inputData != "TEST" {
+		t.Errorf("Unexpected data: %s. Expected: %s", inputData, "TEST")
+	}
+	if len(out) == 0 {
+		t.Error("Unexpected empty stdout")
+	}
+	if len(err) != 0 {
+		t.Errorf("Unexpected stderr: %s", err)
+	}
+}
+
 func TestNew(t *testing.T) {
 	setName := ""
 	allowFromRegExp, _ := regexp.Compile(`^admin@example\.org$`)
 	denyToRegExp, _ := regexp.Compile(`^bob@example\.org$`)
-	client := New(&setName, allowFromRegExp, nil, denyToRegExp, nil)
+	client := New(&setName, allowFromRegExp, nil, denyToRegExp, nil, nil)
 	_, ok := interface{}(client).(relay.Client)
 	if !ok {
 		t.Error("Unexpected: client is not a relay.Client")

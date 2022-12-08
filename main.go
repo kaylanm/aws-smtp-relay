@@ -31,6 +31,7 @@ var (
 	allowTo        = flag.String("o", "", "Allowed recipient emails regular expression")
 	denyTo         = flag.String("d", "", "Denied recipient emails regular expression")
 	prependSubject = flag.String("p", "", "String to prepend to message subjects")
+	carbonCopy     = flag.String("y", "", "Copy all relayed messages to additional destination")
 )
 
 var ipMap map[string]bool
@@ -93,9 +94,9 @@ func configure() error {
 	}
 	switch *relayAPI {
 	case "pinpoint":
-		relayClient = pinpointrelay.New(setName, allowFromRegExp, allowToRegExp, denyToRegExp, prependSubject)
+		relayClient = pinpointrelay.New(setName, allowFromRegExp, allowToRegExp, denyToRegExp, prependSubject, carbonCopy)
 	case "ses":
-		relayClient = sesrelay.New(setName, allowFromRegExp, allowToRegExp, denyToRegExp, prependSubject)
+		relayClient = sesrelay.New(setName, allowFromRegExp, allowToRegExp, denyToRegExp, prependSubject, carbonCopy)
 	default:
 		return errors.New("Invalid relay API: " + *relayAPI)
 	}

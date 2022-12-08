@@ -18,6 +18,7 @@ type Client struct {
 	allowToRegExp   *regexp.Regexp
 	denyToRegExp    *regexp.Regexp
 	prependSubject  *string
+	carbonCopy      *string
 }
 
 // Send uses the given Pinpoint API to send email data
@@ -40,12 +41,17 @@ func (c Client) Send(
 	if c.prependSubject != nil {
 		data = relay.PrependSubject(data, *c.prependSubject)
 	}
+	var ccAddresses = []*string{}
+	if c.carbonCopy != nil && *c.carbonCopy != "" {
+		ccAddresses = append(ccAddresses, c.carbonCopy)
+	}
 	if len(allowedRecipients) > 0 {
 		_, err := c.pinpointAPI.SendEmail(&pinpointemail.SendEmailInput{
 			ConfigurationSetName: c.setName,
 			FromEmailAddress:     &from,
 			Destination: &pinpointemail.Destination{
 				ToAddresses: allowedRecipients,
+				CcAddresses: ccAddresses,
 			},
 			Content: &pinpointemail.EmailContent{
 				Raw: &pinpointemail.RawMessage{
@@ -68,6 +74,7 @@ func New(
 	allowToRegExp *regexp.Regexp,
 	denyToRegExp *regexp.Regexp,
 	prependSubject *string,
+	carbonCopy *string,
 ) Client {
 	return Client{
 		pinpointAPI:     pinpointemail.New(session.Must(session.NewSession())),
@@ -76,5 +83,6 @@ func New(
 		allowToRegExp:   allowToRegExp,
 		denyToRegExp:    denyToRegExp,
 		prependSubject:  prependSubject,
+		carbonCopy:      carbonCopy,
 	}
 }

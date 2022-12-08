@@ -18,6 +18,7 @@ type Client struct {
 	allowToRegExp   *regexp.Regexp
 	denyToRegExp    *regexp.Regexp
 	prependSubject  *string
+	carbonCopy      *string
 }
 
 // Send uses the client SESAPI to send email data
@@ -40,11 +41,15 @@ func (c Client) Send(
 	if c.prependSubject != nil {
 		data = relay.PrependSubject(data, *c.prependSubject)
 	}
+	var ccAddresses = []*string{}
+	if c.carbonCopy != nil && *c.carbonCopy != "" {
+		ccAddresses = append(ccAddresses, c.carbonCopy)
+	}
 	if len(allowedRecipients) > 0 {
 		_, err := c.sesAPI.SendEmail(&sesv2.SendEmailInput{
 			ConfigurationSetName: c.setName,
 			FromEmailAddress:     &from,
-			Destination:          &sesv2.Destination{ToAddresses: allowedRecipients},
+			Destination:          &sesv2.Destination{ToAddresses: allowedRecipients, CcAddresses: ccAddresses},
 			Content:              &sesv2.EmailContent{Raw: &sesv2.RawMessage{Data: data}},
 		})
 		relay.Log(origin, &from, allowedRecipients, err)
@@ -62,6 +67,7 @@ func New(
 	allowToRegExp *regexp.Regexp,
 	denyToRegExp *regexp.Regexp,
 	prependSubject *string,
+	carbonCopy *string,
 ) Client {
 	return Client{
 		sesAPI:          sesv2.New(session.Must(session.NewSession())),
@@ -70,5 +76,6 @@ func New(
 		allowToRegExp:   allowToRegExp,
 		denyToRegExp:    denyToRegExp,
 		prependSubject:  prependSubject,
+		carbonCopy:      carbonCopy,
 	}
 }
